@@ -25,6 +25,7 @@ async def cmd_menu(callback: types.CallbackQuery):
                     f'Всего сохранено вопросов: {len(database.questions)}\n\n')
     print(database.questions)
     await callback.message.answer(menu_message, reply_markup=builder.as_markup())
+    await callback.answer()
 
 
 @dp.callback_query(F.data == "database")
@@ -39,6 +40,7 @@ async def edit_database(callback: types.CallbackQuery):
     menu_message = (f'Life is game by George Bars\n'
                     f'Всего сохранено вопросов: {len(database.questions)}')
     await callback.message.answer(menu_message, reply_markup=builder.as_markup())
+    await callback.answer()
 
 
 @dp.callback_query(F.data == "add_question")
@@ -54,12 +56,10 @@ async def send_random_value(callback: types.CallbackQuery):
             f"Вопрос добавлен в базу данных: \n\n"
             f"Вопрос: {question_text}\nОтвет: {answer_text}",
             reply_markup=builder.as_markup())
-        # await callback.answer(
-        #     f"Вопрос добавлен в базу данных: \n\n"
-        #     f"Вопрос: {question_text}\nОтвет: {answer_text}")
-        await bot.answer_callback_query()
+        await callback.answer()
     else:
         await callback.message.answer("Ошибка при генерации вопроса и/или ответа.", reply_markup=builder.as_markup())
+        await callback.answer()
 
 
 @dp.callback_query(F.data == "edit_question")
@@ -71,6 +71,7 @@ async def send_random_value(callback: types.CallbackQuery):
         q_list.append(f"{str(x+1)}. {database.questions[x][1][0:20]}\n")
         builder.add(types.InlineKeyboardButton(text=str(x+1), callback_data=f"edit_{x}"))
     await callback.message.answer("".join(q_list), reply_markup=builder.as_markup())
+    await callback.answer()
 
 
 def new_question():
