@@ -35,7 +35,7 @@ class Question(StatesGroup):
 async def command_start(message: types.Message):
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("SELECT COUNT (*) FROM questions")
+        cur.execute("SELECT COUNT (*) FROM library")
         count = cur.fetchone()[0]
     menu_message = (f'<b>Life is game by <i>George Bars</i></b>\n'
                     f'Система управления квизами v 0.1\n\n'
@@ -58,20 +58,20 @@ async def read_database(callback: types.CallbackQuery, q_offset: int = 0):
 
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("SELECT COUNT (*) FROM questions")
+        cur.execute("SELECT COUNT (*) FROM library")
         count = cur.fetchone()[0]
 
     match callback.data.split('_')[1]:
         case 'prev':
             q_offset = max(0, q_offset-Q_RANGE)
         case 'next':
-            q_offset = min(q_offset+Q_RANGE, count-Q_RANGE)
+            q_offset = min(q_offset + Q_RANGE, count)
         case _:
             q_offset = 0
 
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("SELECT Question, rowid FROM questions ORDER BY rowid ASC LIMIT ? OFFSET ?", (Q_RANGE, q_offset))
+        cur.execute("SELECT Question, rowid FROM library ORDER BY rowid ASC LIMIT ? OFFSET ?", (Q_RANGE, q_offset))
         questions = cur.fetchall()
 
     menu_message = ""
@@ -99,7 +99,7 @@ async def read_question(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(rowid=rowid)
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("SELECT Question, Answer, Used FROM Questions WHERE rowid = ?", (rowid,))
+        cur.execute("SELECT Question, Answer, Used FROM library WHERE rowid = ?", (rowid,))
         row = cur.fetchone()
     await state.update_data(old_q=row[0])
     await state.update_data(old_a=row[1])
@@ -151,7 +151,7 @@ async def save_question(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("UPDATE questions SET Question = ?, Answer = ?, Used = ? WHERE rowid = ?",
+        cur.execute("UPDATE library SET Question = ?, Answer = ?, Used = ? WHERE rowid = ?",
                     (data.get('q_text'), data.get('a_text'), 0, data.get('rowid')))
         db.commit()
     builder = InlineKeyboardBuilder()
@@ -166,11 +166,11 @@ async def add_question(callback: types.CallbackQuery, state: FSMContext):
     await state.clear()
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("INSERT INTO questions DEFAULT VALUES")
+        cur.execute("INSERT INTO library DEFAULT VALUES")
         cur.execute("SELECT last_insert_rowid()")
         rowid = cur.fetchone()[0]
-    await state.update_data(rowid=rowid)
-    await edit_question()
+    await state.update_data(rowid=rowid, old_q=0, old_a=0)
+    await edit_question(callback, state)
 
 
 @dp.callback_query(F.data == "del_q")
@@ -179,7 +179,7 @@ async def delete_question(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("DELETE FROM questions WHERE rowid = ?", (data.get('rowid'),))
+        cur.execute("DELETE FROM library WHERE rowid = ?", (data.get('rowid'),))
         db.commit()
     menu_message = "Вопрос удалён"
     builder.add(types.InlineKeyboardButton(text="Назад", callback_data=f'database_'))
@@ -193,7 +193,7 @@ async def delete_used(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     with sq.connect("questions.db") as db:
         cur = db.cursor()
-        cur.execute("UPDATE questions SET Used = ? WHERE rowid = ?", ('нет', data.get('rowid')))
+        cur.execute("UPDATE library SET Used = ? WHERE rowid = ?", ('нет', data.get('rowid')))
         db.commit()
     menu_message = "Признак сброшен"
     builder.add(types.InlineKeyboardButton(text="Назад", callback_data=f"question_{data.get('rowid')}"))
